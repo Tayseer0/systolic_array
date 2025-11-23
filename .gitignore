@@ -7,14 +7,13 @@ csrc/
 *.daidir/
 *.vpd
 *.fsdb
+ucli.key
 
 # Python caches
 __pycache__/
-*.pyc
 
 # Editor swap files
 *~
 *.swp
 *.txt
 *.pdf
-ucli.key

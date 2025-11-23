@@ -19,5 +19,4 @@ run:
 	$(SIM_BIN)
 
 clean:
-	rm -rf $(BUILD_DIR) csrc verdiLog simv.daidir ucli.key vc_hdrs.h simv
-
+	rm -rf $(BUILD_DIR) csrc verdiLog simv.daidir ucli.key vc_hdrs.h simv scripts/__pycache__
