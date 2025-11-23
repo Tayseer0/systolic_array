@@ -3,7 +3,7 @@
 module mac_pe #(
     parameter INPUT_WIDTH   = 16,
     parameter ACC_WIDTH     = 16,
-    parameter FRAC_WIDTH    = 15,
+    parameter FRAC_WIDTH    = 8,
     parameter VECTOR_LENGTH = 4,
     parameter integer MAC_ROW = 0,
     parameter integer MAC_COL = 0

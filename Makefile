@@ -11,8 +11,8 @@ SIM_BIN      := $(BUILD_DIR)/systolic_tb
 RTL_SRCS     := $(wildcard rtl/*.v)
 TB_SRCS      := tb/tb_systolic_top.sv
 PY_SCRIPTS   := scripts/fixed_point_data_gen.py
-FRAC_BITS    ?= 15
-VALUE_RANGE  ?= 32767
+FRAC_BITS    ?= 8
+VALUE_RANGE  ?= 1500
 VECTOR_FILES := $(VEC_DIR)/instructions.mem \
                 $(VEC_DIR)/dataA.mem \
                 $(VEC_DIR)/dataB.mem \

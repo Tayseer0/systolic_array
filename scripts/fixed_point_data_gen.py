@@ -122,13 +122,13 @@ def main() -> None:
     parser.add_argument(
         "--frac",
         type=int,
-        default=15,
+        default=8,
         help="Number of fractional bits for the fixed-point representation.",
     )
     parser.add_argument(
         "--value-range",
         type=int,
-        default=32767,
+        default=1500,
         help="Maximum magnitude (in raw fixed-point units) for random entries.",
     )
     parser.add_argument(

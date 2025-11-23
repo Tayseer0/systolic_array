@@ -1,10 +1,10 @@
 module multiplier#(
     parameter INPUT_A_WIDTH = 16,
     parameter INPUT_B_WIDTH = 16,
-    parameter INPUT_A_FRAC  = 15,
-    parameter INPUT_B_FRAC  = 15,
+    parameter INPUT_A_FRAC  = 8,
+    parameter INPUT_B_FRAC  = 8,
     parameter OUTPUT_WIDTH  = 16,
-    parameter OUTPUT_FRAC   = 15,
+    parameter OUTPUT_FRAC   = 8,
     parameter DELAY         = 3
 )(
     input                               clk,

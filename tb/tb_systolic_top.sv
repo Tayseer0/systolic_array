@@ -36,7 +36,7 @@ module tb_systolic_top;
     systolic_top #(
         .INPUT_WIDTH (INPUT_WIDTH),
         .RESULT_WIDTH(RESULT_WIDTH),
-        .FRAC_WIDTH  (15),
+        .FRAC_WIDTH  (8),
         .ADDR_WIDTH  (ADDR_WIDTH)
     ) dut (
         .clk    (clk),

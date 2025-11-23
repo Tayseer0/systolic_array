@@ -3,7 +3,7 @@
 module systolic_controller #(
     parameter INPUT_WIDTH   = 16,
     parameter RESULT_WIDTH  = 16,
-    parameter FRAC_WIDTH    = 15,
+    parameter FRAC_WIDTH    = 8,
     parameter ADDR_WIDTH    = 12,
     parameter VECTOR_LENGTH = 4
 )(
