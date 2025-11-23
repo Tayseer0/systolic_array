@@ -2,7 +2,7 @@
 
 module tb_systolic_top;
 
-    localparam INPUT_WIDTH  = 8;
+    localparam INPUT_WIDTH  = 16;
     localparam RESULT_WIDTH = 16;
     localparam ADDR_WIDTH = 10;
     localparam CLK_PERIOD = 10;
@@ -36,7 +36,7 @@ module tb_systolic_top;
     systolic_top #(
         .INPUT_WIDTH (INPUT_WIDTH),
         .RESULT_WIDTH(RESULT_WIDTH),
-        .FRAC_WIDTH  (0),
+        .FRAC_WIDTH  (15),
         .ADDR_WIDTH  (ADDR_WIDTH)
     ) dut (
         .clk    (clk),
@@ -63,9 +63,9 @@ module tb_systolic_top;
 
     // Vectors loaded from Python generator
     int instruction_sizes[$];
-    logic [INPUT_WIDTH-1:0]  dataA_words[$];
-    logic [INPUT_WIDTH-1:0]  dataB_words[$];
-    logic [RESULT_WIDTH-1:0] expected_words[$];
+    logic signed [INPUT_WIDTH-1:0]  dataA_words[$];
+    logic signed [INPUT_WIDTH-1:0]  dataB_words[$];
+    logic signed [RESULT_WIDTH-1:0] expected_words[$];
 
     int num_instructions;
     int a_bases[$];
@@ -76,7 +76,7 @@ module tb_systolic_top;
     int total_b_words;
     int total_expected_words;
 
-    task automatic host_write_A(input int addr, input [INPUT_WIDTH-1:0] value);
+    task automatic host_write_A(input int addr, input logic signed [INPUT_WIDTH-1:0] value);
         begin
             @(negedge clk);
             addrA <= addr[ADDR_WIDTH-1:0];
@@ -87,7 +87,7 @@ module tb_systolic_top;
         end
     endtask
 
-    task automatic host_write_B(input int addr, input [INPUT_WIDTH-1:0] value);
+    task automatic host_write_B(input int addr, input logic signed [INPUT_WIDTH-1:0] value);
         begin
             @(negedge clk);
             addrB <= addr[ADDR_WIDTH-1:0];
@@ -98,7 +98,7 @@ module tb_systolic_top;
         end
     endtask
 
-    task automatic host_write_I(input int addr, input [INPUT_WIDTH-1:0] value);
+    task automatic host_write_I(input int addr, input logic signed [INPUT_WIDTH-1:0] value);
         begin
             @(negedge clk);
             addrI <= addr[ADDR_WIDTH-1:0];
@@ -109,7 +109,7 @@ module tb_systolic_top;
         end
     endtask
 
-    task automatic read_output(input int addr, output [RESULT_WIDTH-1:0] value);
+    task automatic read_output(input int addr, output logic signed [RESULT_WIDTH-1:0] value);
         begin
             @(negedge clk);
             addrO <= addr[ADDR_WIDTH-1:0];
@@ -174,7 +174,7 @@ module tb_systolic_top;
 
     task automatic read_logic_queue_input(
         input string path,
-        ref logic [INPUT_WIDTH-1:0] queue[$]
+        ref logic signed [INPUT_WIDTH-1:0] queue[$]
     );
         integer fd;
         integer code;
@@ -198,7 +198,7 @@ module tb_systolic_top;
 
     task automatic read_logic_queue_result(
         input string path,
-        ref logic [RESULT_WIDTH-1:0] queue[$]
+        ref logic signed [RESULT_WIDTH-1:0] queue[$]
     );
         integer fd;
         integer code;
@@ -352,7 +352,7 @@ module tb_systolic_top;
         int row;
         int col;
         int fd;
-        logic [RESULT_WIDTH-1:0] value_hw;
+        logic signed [RESULT_WIDTH-1:0] value_hw;
         begin
             fd = $fopen(path, "w");
             if (fd == 0) begin
@@ -378,8 +378,8 @@ module tb_systolic_top;
         int row;
         int col;
         int expected_index;
-        logic [RESULT_WIDTH-1:0] value_hw;
-        logic [RESULT_WIDTH-1:0] expected_value;
+        logic signed [RESULT_WIDTH-1:0] value_hw;
+        logic signed [RESULT_WIDTH-1:0] expected_value;
         begin
             expected_index = 0;
             for (instr_idx = 0; instr_idx < num_instructions; instr_idx++) begin

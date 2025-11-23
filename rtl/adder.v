@@ -1,10 +1,10 @@
 module adder#(
     parameter INPUT_A_WIDTH = 16,
-    parameter INPUT_A_FRAC  = 0,
+    parameter INPUT_A_FRAC  = 15,
     parameter INPUT_B_WIDTH = 16,
-    parameter INPUT_B_FRAC  = 0,
+    parameter INPUT_B_FRAC  = 15,
     parameter OUTPUT_WIDTH  = 16,
-    parameter OUTPUT_FRAC   = 0,
+    parameter OUTPUT_FRAC   = 15,
     parameter DELAY         = 1
 )(
     input                          clk,
@@ -17,35 +17,45 @@ module adder#(
     output                         done
 );
 
-    reg [OUTPUT_WIDTH-1:0] add;
+    reg signed [OUTPUT_WIDTH-1:0] add;
     reg en_reg;
     
     localparam integer SHIFT_A = OUTPUT_FRAC - INPUT_A_FRAC;
     localparam integer SHIFT_B = OUTPUT_FRAC - INPUT_B_FRAC;
 
-    localparam [OUTPUT_WIDTH-1:0] MAX_VAL = {OUTPUT_WIDTH{1'b1}};
+    localparam signed [OUTPUT_WIDTH-1:0] MAX_VAL = {1'b0, {(OUTPUT_WIDTH-1){1'b1}}};
+    localparam signed [OUTPUT_WIDTH-1:0] MIN_VAL = {1'b1, {(OUTPUT_WIDTH-1){1'b0}}};
+    localparam signed [OUTPUT_WIDTH:0]   MAX_EXT = {MAX_VAL[OUTPUT_WIDTH-1], MAX_VAL};
+    localparam signed [OUTPUT_WIDTH:0]   MIN_EXT = {MIN_VAL[OUTPUT_WIDTH-1], MIN_VAL};
 
-    function automatic [OUTPUT_WIDTH-1:0] align_input(
-        input [OUTPUT_WIDTH-1:0] value,
+    function automatic signed [OUTPUT_WIDTH-1:0] align_input(
+        input signed [OUTPUT_WIDTH-1:0] value,
         input integer shift
     );
         begin
             if (shift >= 0) begin
-                align_input = (shift >= OUTPUT_WIDTH) ? '0 : (value << shift);
+                align_input = (shift >= OUTPUT_WIDTH) ? {OUTPUT_WIDTH{value[OUTPUT_WIDTH-1]}}
+                                                      : (value <<< shift);
             end else begin
-                align_input = (-shift >= OUTPUT_WIDTH) ? '0 : (value >> (-shift));
+                align_input = (-shift >= OUTPUT_WIDTH) ? {OUTPUT_WIDTH{value[OUTPUT_WIDTH-1]}}
+                                                       : (value >>> (-shift));
             end
         end
     endfunction
 
-    wire [OUTPUT_WIDTH-1:0] a_ext = {{(OUTPUT_WIDTH-INPUT_A_WIDTH){1'b0}}, a_in};
-    wire [OUTPUT_WIDTH-1:0] b_ext = {{(OUTPUT_WIDTH-INPUT_B_WIDTH){1'b0}}, b_in};
+    wire signed [OUTPUT_WIDTH-1:0] a_ext = {{(OUTPUT_WIDTH-INPUT_A_WIDTH){a_in[INPUT_A_WIDTH-1]}}, a_in};
+    wire signed [OUTPUT_WIDTH-1:0] b_ext = {{(OUTPUT_WIDTH-INPUT_B_WIDTH){b_in[INPUT_B_WIDTH-1]}}, b_in};
 
-    wire [OUTPUT_WIDTH-1:0] a_aligned = align_input(a_ext, SHIFT_A);
-    wire [OUTPUT_WIDTH-1:0] b_aligned = align_input(b_ext, SHIFT_B);
+    wire signed [OUTPUT_WIDTH-1:0] a_aligned = align_input(a_ext, SHIFT_A);
+    wire signed [OUTPUT_WIDTH-1:0] b_aligned = align_input(b_ext, SHIFT_B);
 
-    wire [OUTPUT_WIDTH:0] sum_ext = {1'b0, a_aligned} + {1'b0, b_aligned};
-    wire [OUTPUT_WIDTH-1:0] sum_clamped = sum_ext[OUTPUT_WIDTH] ? MAX_VAL : sum_ext[OUTPUT_WIDTH-1:0];
+    wire signed [OUTPUT_WIDTH:0] a_ext_full = {a_aligned[OUTPUT_WIDTH-1], a_aligned};
+    wire signed [OUTPUT_WIDTH:0] b_ext_full = {b_aligned[OUTPUT_WIDTH-1], b_aligned};
+    wire signed [OUTPUT_WIDTH:0] sum_ext = a_ext_full + b_ext_full;
+    wire signed [OUTPUT_WIDTH-1:0] sum_clamped =
+        (sum_ext > MAX_EXT) ? MAX_VAL :
+        (sum_ext < MIN_EXT) ? MIN_VAL :
+        sum_ext[OUTPUT_WIDTH-1:0];
 
     //add
     always @(posedge clk ) begin

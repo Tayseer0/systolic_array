@@ -14,17 +14,17 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
 
-def saturate_u16(value: int) -> int:
-    if value > 0xFFFF:
-        return 0xFFFF
-    if value < 0:
-        return 0
+def saturate_s16(value: int) -> int:
+    if value > 0x7FFF:
+        return 0x7FFF
+    if value < -0x8000:
+        return -0x8000
     return value
 
 
 def generate_matrix(rows: int, cols: int, value_range: int) -> List[List[int]]:
     return [
-        [random.randint(0, value_range) for _ in range(cols)]
+        [random.randint(-value_range, value_range) for _ in range(cols)]
         for _ in range(rows)
     ]
 
@@ -41,7 +41,8 @@ def multiply_matrices(
             acc = 0
             for k in range(depth):
                 acc += (a[r][k] * b[k][c]) >> frac_bits
-            result[r][c] = saturate_u16(acc)
+                acc = saturate_s16(acc)
+            result[r][c] = saturate_s16(acc)
     return result
 
 
@@ -58,6 +59,7 @@ def build_payload(
     expected: List[int] = []
     meta: Dict[str, Any] = {
         "frac_bits": frac_bits,
+        "value_range": value_range,
         "instructions": [],
     }
 
@@ -120,14 +122,14 @@ def main() -> None:
     parser.add_argument(
         "--frac",
         type=int,
-        default=0,
+        default=15,
         help="Number of fractional bits for the fixed-point representation.",
     )
     parser.add_argument(
         "--value-range",
         type=int,
-        default=127,
-        help="Maximum unsigned value for randomly generated entries.",
+        default=32767,
+        help="Maximum magnitude (in raw fixed-point units) for random entries.",
     )
     parser.add_argument(
         "--seed",
@@ -144,8 +146,9 @@ def main() -> None:
     args = parser.parse_args()
 
     random.seed(args.seed)
+    value_range = min(max(args.value_range, 0), 0x7FFF)
     instructions, data_a, data_b, expected, meta = build_payload(
-        args.sizes, args.frac, args.value_range
+        args.sizes, args.frac, value_range
     )
 
     out_dir = Path(args.out_dir)

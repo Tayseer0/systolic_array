@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 
 module mac_pe #(
-    parameter INPUT_WIDTH   = 8,
+    parameter INPUT_WIDTH   = 16,
     parameter ACC_WIDTH     = 16,
-    parameter FRAC_WIDTH    = 0,
+    parameter FRAC_WIDTH    = 15,
     parameter VECTOR_LENGTH = 4,
     parameter integer MAC_ROW = 0,
     parameter integer MAC_COL = 0
@@ -11,15 +11,15 @@ module mac_pe #(
     input                               clk,
     input                               rst,
     input                               clear,
-    input        [INPUT_WIDTH-1:0]      a_in,
+    input        signed [INPUT_WIDTH-1:0] a_in,
     input                               a_valid_in,
-    input        [INPUT_WIDTH-1:0]      b_in,
+    input        signed [INPUT_WIDTH-1:0] b_in,
     input                               b_valid_in,
-    output reg   [INPUT_WIDTH-1:0]      a_out,
+    output reg   signed [INPUT_WIDTH-1:0] a_out,
     output reg                          a_valid_out,
-    output reg   [INPUT_WIDTH-1:0]      b_out,
+    output reg   signed [INPUT_WIDTH-1:0] b_out,
     output reg                          b_valid_out,
-    output reg   [ACC_WIDTH-1:0]        acc_value,
+    output reg   signed [ACC_WIDTH-1:0]  acc_value,
     output reg                          acc_valid
 );
 
@@ -30,11 +30,11 @@ module mac_pe #(
     localparam integer MULT_DELAY = 3;
     localparam integer ADD_DELAY  = 1;
 
-    wire [ACC_WIDTH-1:0] product;
-    wire                         product_valid;
-    wire [ACC_WIDTH-1:0] sum_value;
-    wire                         sum_valid;
-    wire [ACC_WIDTH-1:0] acc_feedback;
+    wire signed [ACC_WIDTH-1:0] product;
+    wire                        product_valid;
+    wire signed [ACC_WIDTH-1:0] sum_value;
+    wire                        sum_valid;
+    wire signed [ACC_WIDTH-1:0] acc_feedback;
     bit debug_mac;
 
     initial begin
@@ -117,6 +117,10 @@ module mac_pe #(
                     $display("%0t MAC[%0d,%0d] mul launch a=%0d b=%0d",
                              $time, MAC_ROW, MAC_COL, a_in, b_in);
                 end
+            end
+            if (debug_mac && product_valid) begin
+                $display("%0t MAC[%0d,%0d] product=%0d",
+                         $time, MAC_ROW, MAC_COL, product);
             end
 
             if (sum_valid) begin

@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 
 module systolic_controller #(
-    parameter INPUT_WIDTH   = 8,
+    parameter INPUT_WIDTH   = 16,
     parameter RESULT_WIDTH  = 16,
-    parameter FRAC_WIDTH    = 0,
+    parameter FRAC_WIDTH    = 15,
     parameter ADDR_WIDTH    = 12,
     parameter VECTOR_LENGTH = 4
 )(
@@ -93,8 +93,8 @@ module systolic_controller #(
     reg [RESULT_WIDTH-1:0]  pending_result_data;
 
     // Tile buffers
-    reg [INPUT_WIDTH-1:0] a_tile [0:VECTOR_LENGTH-1][0:VECTOR_LENGTH-1];
-    reg [INPUT_WIDTH-1:0] b_tile [0:VECTOR_LENGTH-1][0:VECTOR_LENGTH-1];
+    reg signed [INPUT_WIDTH-1:0] a_tile [0:VECTOR_LENGTH-1][0:VECTOR_LENGTH-1];
+    reg signed [INPUT_WIDTH-1:0] b_tile [0:VECTOR_LENGTH-1][0:VECTOR_LENGTH-1];
 
     wire start_pulse;
     reg  ap_start_d;
@@ -203,7 +203,7 @@ module systolic_controller #(
                 end
                 STATE_WAIT_INST: begin
                     if (inst_en_d) begin
-                        curr_size <= {{(16-INPUT_WIDTH){1'b0}}, inst_rdata};
+                        curr_size <= inst_rdata;
                         if (debug_controller) begin
                             $display("%0t CTRL inst data size=%0d a_ptr=%0d b_ptr=%0d o_ptr=%0d",
                                      $time, {{(16-INPUT_WIDTH){1'b0}}, inst_rdata}, a_ptr, b_ptr, o_ptr);
@@ -390,7 +390,7 @@ module systolic_controller #(
 
     task store_a_tile;
         input [5:0] index;
-        input [INPUT_WIDTH-1:0] data_word;
+        input signed [INPUT_WIDTH-1:0] data_word;
         reg [1:0] local_row;
         reg [1:0] local_col;
         begin
@@ -402,7 +402,7 @@ module systolic_controller #(
 
     task store_b_tile;
         input [5:0] index;
-        input [INPUT_WIDTH-1:0] data_word;
+        input signed [INPUT_WIDTH-1:0] data_word;
         reg [1:0] local_row;
         reg [1:0] local_col;
         begin

@@ -11,6 +11,8 @@ SIM_BIN      := $(BUILD_DIR)/systolic_tb
 RTL_SRCS     := $(wildcard rtl/*.v)
 TB_SRCS      := tb/tb_systolic_top.sv
 PY_SCRIPTS   := scripts/fixed_point_data_gen.py
+FRAC_BITS    ?= 15
+VALUE_RANGE  ?= 32767
 VECTOR_FILES := $(VEC_DIR)/instructions.mem \
                 $(VEC_DIR)/dataA.mem \
                 $(VEC_DIR)/dataB.mem \
@@ -25,7 +27,7 @@ $(BUILD_STAMP):
 	@touch $@
 
 $(VECTOR_STAMP): $(BUILD_STAMP) $(PY_SCRIPTS)
-	$(PYTHON) $(PY_SCRIPTS) --out-dir $(VEC_DIR)
+	$(PYTHON) $(PY_SCRIPTS) --out-dir $(VEC_DIR) --frac $(FRAC_BITS) --value-range $(VALUE_RANGE)
 	touch $(VECTOR_STAMP)
 
 build: $(VECTOR_STAMP) $(SIM_BIN)

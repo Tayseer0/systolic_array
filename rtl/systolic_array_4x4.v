@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 
 module systolic_array_4x4 #(
-    parameter INPUT_WIDTH   = 8,
+    parameter INPUT_WIDTH   = 16,
     parameter ACC_WIDTH     = 16,
-    parameter FRAC_WIDTH    = 0,
+    parameter FRAC_WIDTH    = 15,
     parameter VECTOR_LENGTH = 4
 )(
     input                               clk,
@@ -20,8 +20,8 @@ module systolic_array_4x4 #(
     localparam ROWS = 4;
     localparam COLS = 4;
 
-    wire [INPUT_WIDTH-1:0] row_inputs   [0:ROWS-1];
-    wire [INPUT_WIDTH-1:0] col_inputs   [0:COLS-1];
+    wire signed [INPUT_WIDTH-1:0] row_inputs   [0:ROWS-1];
+    wire signed [INPUT_WIDTH-1:0] col_inputs   [0:COLS-1];
     wire                         row_valid_in [0:ROWS-1];
     wire                         col_valid_in [0:COLS-1];
 
@@ -32,7 +32,7 @@ module systolic_array_4x4 #(
                 assign row_inputs[idx]   = row_data_bus[INPUT_WIDTH*idx +: INPUT_WIDTH];
                 assign row_valid_in[idx] = feed_valid;
             end else begin : ROW_DELAY
-                reg [INPUT_WIDTH-1:0] row_data_pipe [0:idx-1];
+                reg signed [INPUT_WIDTH-1:0] row_data_pipe [0:idx-1];
                 reg                         row_valid_pipe[0:idx-1];
                 integer stage;
                 always @(posedge clk) begin
@@ -60,7 +60,7 @@ module systolic_array_4x4 #(
                 assign col_inputs[idx]   = col_data_bus[INPUT_WIDTH*idx +: INPUT_WIDTH];
                 assign col_valid_in[idx] = feed_valid;
             end else begin : COL_DELAY
-                reg [INPUT_WIDTH-1:0] col_data_pipe [0:idx-1];
+                reg signed [INPUT_WIDTH-1:0] col_data_pipe [0:idx-1];
                 reg                         col_valid_pipe[0:idx-1];
                 integer cstage;
                 always @(posedge clk) begin
@@ -84,8 +84,8 @@ module systolic_array_4x4 #(
         end
     endgenerate
 
-    wire [INPUT_WIDTH-1:0] a_bus [0:ROWS-1][0:COLS];
-    wire [INPUT_WIDTH-1:0] b_bus [0:ROWS][0:COLS-1];
+    wire signed [INPUT_WIDTH-1:0] a_bus [0:ROWS-1][0:COLS];
+    wire signed [INPUT_WIDTH-1:0] b_bus [0:ROWS][0:COLS-1];
     wire                         a_val [0:ROWS-1][0:COLS];
     wire                         b_val [0:ROWS][0:COLS-1];
 
@@ -100,7 +100,7 @@ module systolic_array_4x4 #(
         end
     endgenerate
 
-    wire [ACC_WIDTH-1:0] pe_values[0:ROWS-1][0:COLS-1];
+    wire signed [ACC_WIDTH-1:0] pe_values[0:ROWS-1][0:COLS-1];
     wire                         pe_valids[0:ROWS-1][0:COLS-1];
 
     genvar r, c;

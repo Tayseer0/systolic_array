@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 
 module systolic_top #(
-    parameter INPUT_WIDTH = 8,
+    parameter INPUT_WIDTH = 16,
     parameter RESULT_WIDTH = 16,
-    parameter FRAC_WIDTH = 0,
+    parameter FRAC_WIDTH = 15,
     parameter ADDR_WIDTH = 10
 )(
     input                           clk,
