@@ -1,5 +1,26 @@
-`timescale 1ns/1ps
 `include "systolic_config.vh"
+
+// Top-level module integrating array, controller, and memories
+//
+// System-level integration of systolic array, FSM controller, and dual-port memories.
+// Provides host interface for loading data/instructions and reading results, while
+// controller manages array operations autonomously. Supports multiple matrix
+// multiplications via instruction stream.
+//
+// Parameters:
+//   INPUT_WIDTH: Bit width of input data and instructions
+//   RESULT_WIDTH: Bit width of accumulator results
+//   FRAC_WIDTH: Number of fractional bits for fixed-point arithmetic
+//   ADDR_WIDTH: Address bus width for all memories
+//
+// Behavior:
+//   - Host writes matrix A data via (addrA, enA, dataA) to data_mem_a
+//   - Host writes matrix B data via (addrB, enB, dataB) to data_mem_b
+//   - Host writes instruction stream via (addrI, enI, dataI) to inst_mem
+//   - Host asserts ap_start to begin computation; ap_done indicates completion
+//   - Controller reads instructions, loads tiles, feeds array, collects results
+//   - Host reads results via (addrO, dataO) from result_mem
+//   - All memories are dual-port: host port for writes, controller port for reads/writes
 
 module systolic_top #(
     parameter INPUT_WIDTH  = `SYSTOLIC_INPUT_WIDTH,
@@ -9,27 +30,21 @@ module systolic_top #(
 )(
     input                           clk,
     input                           rst,
-    // Data memory A host write port
     input      [ADDR_WIDTH-1:0]     addrA,
     input                           enA,
     input      [INPUT_WIDTH-1:0]    dataA,
-    // Data memory B host write port
     input      [ADDR_WIDTH-1:0]     addrB,
     input                           enB,
     input      [INPUT_WIDTH-1:0]    dataB,
-    // Instruction memory host write port
     input      [ADDR_WIDTH-1:0]     addrI,
     input                           enI,
     input      [INPUT_WIDTH-1:0]    dataI,
-    // Output memory host read port
     input      [ADDR_WIDTH-1:0]     addrO,
     output     [RESULT_WIDTH-1:0]   dataO,
-    // Control
     input                           ap_start,
     output                          ap_done
 );
 
-    // Memory wires
     wire [INPUT_WIDTH-1:0]  data_a_ctrl_rdata;
     wire [INPUT_WIDTH-1:0]  data_b_ctrl_rdata;
     wire [INPUT_WIDTH-1:0]  inst_ctrl_rdata;
@@ -178,4 +193,3 @@ module systolic_top #(
     );
 
 endmodule
-

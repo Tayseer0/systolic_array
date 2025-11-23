@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
-"""
-Utility script to generate fixed-point matrices for the 4x4 systolic array.
-
-It produces four memory image files plus a JSON metadata file that describe
-the input operands, instruction stream, and expected outputs. The SystemVerilog
-testbench consumes the `.mem` files directly.
-"""
+# Generate fixed-point test vectors for systolic array
+#
+# Generates test vectors for systolic array verification including instruction stream,
+# matrix operands, and expected results. Creates memory image files compatible with
+# SystemVerilog testbench. Supports configurable fixed-point formats via fractional width.
+#
+# Parameters:
+#   --frac: Number of fractional bits for fixed-point representation (default 15)
+#           Determines Q format: Q(16-frac).frac (e.g., frac=15 -> Q1.15, frac=8 -> Q8.8)
+#
+# Behavior:
+#   - Generates random matrices for sizes [4, 8, 16] with values constrained to prevent overflow
+#   - Computes matrix products using fixed-point arithmetic with saturation
+#   - Writes four memory files: instructions.mem, dataA.mem, dataB.mem, expected.mem
+#   - Instruction stream contains matrix sizes followed by terminating 0
+#   - Value range automatically computed based on fractional width to keep products in-range
+#   - Uses fixed random seed (1) for reproducible test vectors
 
 import argparse
-import json
 import random
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Tuple
 
 
 def saturate_s16(value: int) -> int:
@@ -30,7 +39,7 @@ def generate_matrix(rows: int, cols: int, value_range: int) -> List[List[int]]:
 
 
 def compute_value_range(frac_width: int) -> int:
-    base_real_limit = 5.6  # keep products/accumulations in-range
+    base_real_limit = 5.6
     raw_limit = int(base_real_limit * (1 << frac_width))
     raw_limit = max(1, raw_limit)
     return min(raw_limit, 0x7FFF)
@@ -59,21 +68,11 @@ def flatten(matrix: List[List[int]]) -> List[int]:
 
 def build_payload(
     sizes: List[int], frac_width: int, value_range: int
-) -> Tuple[List[int], List[int], List[int], List[int], Dict[str, Any]]:
+) -> Tuple[List[int], List[int], List[int], List[int]]:
     instructions: List[int] = []
     data_a: List[int] = []
     data_b: List[int] = []
     expected: List[int] = []
-    meta: Dict[str, Any] = {
-        "frac_width": frac_width,
-        "value_range": value_range,
-        "instructions": [],
-    }
-
-    a_base = 0
-    b_base = 0
-    o_base = 0
-    expected_base = 0
 
     for size in sizes:
         if size % 4 != 0:
@@ -87,28 +86,9 @@ def build_payload(
         data_b.extend(flatten(matrix_b))
         expected.extend(flatten(matrix_c))
 
-        meta["instructions"].append(
-            {
-                "size": size,
-                "a_base": a_base,
-                "b_base": b_base,
-                "o_base": o_base,
-                "expected_base": expected_base,
-            }
-        )
+    instructions.append(0)
 
-        a_base += size * 4
-        b_base += size * 4
-        o_base += size * size
-        expected_base += size * size
-
-    instructions.append(0)  # termination instruction
-    meta["instruction_count"] = len(sizes)
-    meta["total_a_words"] = a_base
-    meta["total_b_words"] = b_base
-    meta["total_expected_words"] = expected_base
-
-    return instructions, data_a, data_b, expected, meta
+    return instructions, data_a, data_b, expected
 
 
 def write_mem_file(path: Path, values: List[int]) -> None:
@@ -126,12 +106,13 @@ def main() -> None:
         help="Number of fractional bits for the fixed-point representation.",
     )
     args = parser.parse_args()
+    frac_width = args.frac
 
     random.seed(1)
-    value_range = compute_value_range(args.frac_width)
+    value_range = compute_value_range(frac_width)
     instruction_sizes = [4, 8, 16]
-    instructions, data_a, data_b, expected, meta = build_payload(
-        instruction_sizes, args.frac_width, value_range
+    instructions, data_a, data_b, expected = build_payload(
+        instruction_sizes, frac_width, value_range
     )
 
     out_dir = Path("build")
@@ -142,15 +123,11 @@ def main() -> None:
     write_mem_file(out_dir / "dataB.mem", data_b)
     write_mem_file(out_dir / "expected.mem", expected)
 
-    with (out_dir / "vectors_meta.json").open("w", encoding="utf-8") as handle:
-        json.dump(meta, handle, indent=2)
-
     print(
-        f"Wrote {meta['instruction_count']} instruction blocks to {out_dir} "
+        f"Wrote {len(instruction_sizes)} instruction blocks to {out_dir} "
         f"(instructions+dataA+dataB+expected)."
     )
 
 
 if __name__ == "__main__":
     main()
-

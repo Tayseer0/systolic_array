@@ -1,6 +1,29 @@
 `include "systolic_config.vh"
 
-module multiplier#(
+// Signed fixed-point multiplier with saturation
+//
+// Performs signed fixed-point multiplication of two inputs with configurable fractional widths.
+// Computes full-width product, applies fractional bit alignment via shift, and clamps result
+// to output width using symmetric saturation. Supports configurable pipeline delay.
+//
+// Parameters:
+//   INPUT_A_WIDTH: Bit width of first input operand
+//   INPUT_B_WIDTH: Bit width of second input operand
+//   INPUT_A_FRAC: Number of fractional bits in first input (Q format)
+//   INPUT_B_FRAC: Number of fractional bits in second input (Q format)
+//   OUTPUT_WIDTH: Bit width of output result
+//   OUTPUT_FRAC: Number of fractional bits in output (Q format)
+//   DELAY: Pipeline delay stages (default 3)
+//
+// Behavior:
+//   - Multiplies a_in * b_in to produce full-width product (INPUT_A_WIDTH + INPUT_B_WIDTH bits)
+//   - Shifts product right by (INPUT_A_FRAC + INPUT_B_FRAC - OUTPUT_FRAC) bits to align fractional points
+//   - If shift is negative, shifts left instead
+//   - Clamps shifted result to [MIN_VAL, MAX_VAL] using symmetric saturation
+//   - Outputs result after DELAY clock cycles with done signal synchronized to output
+//   - Respects stall signal to pause pipeline when asserted
+
+module multiplier #(
     parameter INPUT_A_WIDTH = `SYSTOLIC_INPUT_WIDTH,
     parameter INPUT_B_WIDTH = `SYSTOLIC_INPUT_WIDTH,
     parameter INPUT_A_FRAC  = `SYSTOLIC_FRAC_WIDTH,
@@ -53,8 +76,7 @@ module multiplier#(
         (product_full <<< SHIFT_LEFT);
     wire signed [OUTPUT_WIDTH-1:0] product_clamped = clamp_to_output(product_shifted);
 
-    //mult
-    always @(posedge clk ) begin
+    always @(posedge clk) begin
         if (reset) begin
             mult    <=  '0;
         end else if (!stall && en) begin
@@ -62,13 +84,11 @@ module multiplier#(
         end
     end
 
-    //output buffer
     genvar i;
     generate
         if (DELAY <= 1) begin
             assign out = mult;
-            //sync with mult
-            always @(posedge clk ) begin
+            always @(posedge clk) begin
                 if (reset) begin
                     en_reg <= '0;
                 end else begin
@@ -80,8 +100,7 @@ module multiplier#(
         else begin
             reg [OUTPUT_WIDTH-1:0] mult_delayed[0:DELAY-2];
             reg en_delayed[0:DELAY-2];
-            //sync with mult
-            always @(posedge clk ) begin
+            always @(posedge clk) begin
                 if (reset) begin
                     en_reg <= '0;
                 end else begin
@@ -90,7 +109,7 @@ module multiplier#(
             end
             for (i = 0; i < DELAY-1; i = i + 1) begin
                 if (i == 0) begin
-                    always @(posedge clk ) begin
+                    always @(posedge clk) begin
                         if (reset) begin
                             mult_delayed[i] <= '0;
                             en_delayed[i] <= '0;
@@ -101,7 +120,7 @@ module multiplier#(
                     end
                 end
                 else begin
-                    always @(posedge clk ) begin
+                    always @(posedge clk) begin
                         if (reset) begin
                             mult_delayed[i] <= '0;
                             en_delayed[i] <= '0;

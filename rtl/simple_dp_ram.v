@@ -1,18 +1,34 @@
 `timescale 1ns/1ps
 
+// Dual-port RAM with host and controller ports
+//
+// Simple dual-port RAM with independent host and controller access ports.
+// Host port is typically used for initialization (writes), controller port for
+// runtime access (reads/writes). Both ports can access memory simultaneously
+// with controller port taking precedence on conflicts.
+//
+// Parameters:
+//   DATA_WIDTH: Bit width of data words
+//   ADDR_WIDTH: Address bus width (memory depth is 2^ADDR_WIDTH)
+//
+// Behavior:
+//   - Host port: Write when host_en && host_we, read when host_en && ~host_we
+//   - Controller port: Write when ctrl_en && ctrl_we, read when ctrl_en && ~ctrl_we
+//   - Memory initialized to zero on reset
+//   - Read data available one cycle after address/enable
+//   - Write operations are synchronous on clock edge
+
 module simple_dp_ram #(
     parameter DATA_WIDTH = 16,
     parameter ADDR_WIDTH = 10
 )(
     input                          clk,
     input                          rst,
-    // Host port
     input                          host_en,
     input                          host_we,
     input      [ADDR_WIDTH-1:0]    host_addr,
     input      [DATA_WIDTH-1:0]    host_wdata,
     output reg [DATA_WIDTH-1:0]    host_rdata,
-    // Controller port
     input                          ctrl_en,
     input                          ctrl_we,
     input      [ADDR_WIDTH-1:0]    ctrl_addr,
@@ -54,4 +70,3 @@ module simple_dp_ram #(
     end
 
 endmodule
-

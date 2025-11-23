@@ -1,6 +1,29 @@
 `include "systolic_config.vh"
 
-module adder#(
+// Signed fixed-point adder with alignment and saturation
+//
+// Performs signed fixed-point addition of two inputs with independent fractional widths.
+// Sign-extends inputs to output width, aligns fractional points via shift, and clamps
+// result using symmetric saturation. Supports configurable pipeline delay.
+//
+// Parameters:
+//   INPUT_A_WIDTH: Bit width of first input operand
+//   INPUT_A_FRAC: Number of fractional bits in first input (Q format)
+//   INPUT_B_WIDTH: Bit width of second input operand
+//   INPUT_B_FRAC: Number of fractional bits in second input (Q format)
+//   OUTPUT_WIDTH: Bit width of output result
+//   OUTPUT_FRAC: Number of fractional bits in output (Q format)
+//   DELAY: Pipeline delay stages (default 1)
+//
+// Behavior:
+//   - Sign-extends both inputs to OUTPUT_WIDTH
+//   - Aligns inputs to OUTPUT_FRAC by shifting left (if shift positive) or right (if negative)
+//   - Performs addition with one extra bit for overflow detection
+//   - Clamps result to [MIN_VAL, MAX_VAL] using symmetric saturation
+//   - Outputs result after DELAY clock cycles with done signal synchronized to output
+//   - Respects stall signal to pause pipeline when asserted
+
+module adder #(
     parameter INPUT_A_WIDTH = `SYSTOLIC_RESULT_WIDTH,
     parameter INPUT_A_FRAC  = `SYSTOLIC_FRAC_WIDTH,
     parameter INPUT_B_WIDTH = `SYSTOLIC_RESULT_WIDTH,
@@ -21,7 +44,7 @@ module adder#(
 
     reg signed [OUTPUT_WIDTH-1:0] add;
     reg en_reg;
-    
+
     localparam integer SHIFT_A = OUTPUT_FRAC - INPUT_A_FRAC;
     localparam integer SHIFT_B = OUTPUT_FRAC - INPUT_B_FRAC;
 
@@ -59,8 +82,7 @@ module adder#(
         (sum_ext < MIN_EXT) ? MIN_VAL :
         sum_ext[OUTPUT_WIDTH-1:0];
 
-    //add
-    always @(posedge clk ) begin
+    always @(posedge clk) begin
         if (reset) begin
             add <= '0;
         end else if (!stall && en) begin
@@ -68,13 +90,11 @@ module adder#(
         end
     end
 
-    //output buffer
     genvar i;
     generate
         if (DELAY <= 1) begin
             assign out = add;
-            //sync with add
-            always @(posedge clk ) begin
+            always @(posedge clk) begin
                 if (reset) begin
                     en_reg <= '0;
                 end else begin
@@ -86,8 +106,7 @@ module adder#(
         else begin
             reg [OUTPUT_WIDTH-1:0] add_delayed[0:DELAY-2];
             reg en_delayed[0:DELAY-2];
-            //sync with add
-            always @(posedge clk ) begin
+            always @(posedge clk) begin
                 if (reset) begin
                     en_reg <= '0;
                 end else begin
@@ -96,7 +115,7 @@ module adder#(
             end
             for (i = 0; i < DELAY-1; i = i + 1) begin
                 if (i == 0) begin
-                    always @(posedge clk ) begin
+                    always @(posedge clk) begin
                         if (reset) begin
                             add_delayed[i] <= '0;
                             en_delayed[i] <= '0;
@@ -107,7 +126,7 @@ module adder#(
                     end
                 end
                 else begin
-                    always @(posedge clk ) begin
+                    always @(posedge clk) begin
                         if (reset) begin
                             add_delayed[i] <= '0;
                             en_delayed[i] <= '0;

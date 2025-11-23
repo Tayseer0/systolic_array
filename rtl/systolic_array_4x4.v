@@ -1,5 +1,26 @@
-`timescale 1ns/1ps
 `include "systolic_config.vh"
+
+// 4x4 systolic array with pipelined data flow
+//
+// Implements a 4x4 grid of MAC processing elements with systolic data movement.
+// Row data flows left-to-right, column data flows top-to-bottom. Each row/column
+// has staggered pipeline delays to ensure data arrives at PEs in correct sequence.
+// Tracks completion of all PEs and asserts tile_done when all results are ready.
+//
+// Parameters:
+//   INPUT_WIDTH: Bit width of input data buses
+//   ACC_WIDTH: Bit width of accumulator results
+//   FRAC_WIDTH: Number of fractional bits for fixed-point arithmetic
+//   VECTOR_LENGTH: Number of MAC operations per tile (default 4)
+//
+// Behavior:
+//   - Receives row_data_bus (4 words) and col_data_bus (4 words) on feed_valid
+//   - Row 0 and Column 0 receive data directly; other rows/cols have pipeline delays
+//   - Each PE processes data and passes it to adjacent PEs in systolic fashion
+//   - Monitors all 16 PEs for completion via acc_valid signals
+//   - Asserts tile_done when all PEs have completed VECTOR_LENGTH operations
+//   - ready_for_feed indicates array is idle and can accept new tile
+//   - tile_clear resets all PEs and prepares for new computation
 
 module systolic_array_4x4 #(
     parameter INPUT_WIDTH   = `SYSTOLIC_INPUT_WIDTH,
@@ -112,9 +133,7 @@ module systolic_array_4x4 #(
                     .INPUT_WIDTH  (INPUT_WIDTH),
                     .ACC_WIDTH    (ACC_WIDTH),
                     .FRAC_WIDTH   (FRAC_WIDTH),
-                    .VECTOR_LENGTH(VECTOR_LENGTH),
-                    .MAC_ROW      (r),
-                    .MAC_COL      (c)
+                    .VECTOR_LENGTH(VECTOR_LENGTH)
                 ) u_mac_pe (
                     .clk          (clk),
                     .rst          (rst),
@@ -148,14 +167,7 @@ module systolic_array_4x4 #(
 
     reg busy;
     reg tile_done_sent;
-    bit debug_tile;
-    bit debug_array;
     integer rr, cc;
-
-    initial begin
-        debug_tile  = $test$plusargs("DEBUG_TILE");
-        debug_array = $test$plusargs("DEBUG_ARRAY");
-    end
 
     assign ready_for_feed = ~busy;
 
@@ -171,18 +183,11 @@ module systolic_array_4x4 #(
                 busy           <= 1'b1;
                 tile_done_sent <= 1'b0;
                 pe_done_mask   <= '0;
-                if (debug_array) begin
-                    $display("%0t ARRAY start tile", $time);
-                end
             end else begin
                 if (busy) begin
                     for (rr = 0; rr < ROWS; rr = rr + 1) begin
                         for (cc = 0; cc < COLS; cc = cc + 1) begin
                             if (pe_valids[rr][cc]) begin
-                                if (debug_array && ~pe_done_mask[rr*COLS + cc]) begin
-                                    $display("%0t ARRAY PE[%0d,%0d] acc=%0d",
-                                             $time, rr, cc, pe_values[rr][cc]);
-                                end
                                 pe_done_mask[rr*COLS + cc] <= 1'b1;
                             end
                         end
@@ -192,20 +197,6 @@ module systolic_array_4x4 #(
                         tile_done      <= 1'b1;
                         tile_done_sent <= 1'b1;
                         busy           <= 1'b0;
-                        if (debug_array) begin
-                            $display("%0t ARRAY tile_done mask=%b", $time, pe_done_mask);
-                        end
-                        if (debug_tile) begin
-                            $display("DEBUG_TILE_RESULT:");
-                            for (rr = 0; rr < ROWS; rr = rr + 1) begin
-                                string line;
-                                line = "";
-                                for (cc = 0; cc < COLS; cc = cc + 1) begin
-                                    line = {line, $sformatf("%0d ", pe_values[rr][cc])};
-                                end
-                                $display("%s", line);
-                            end
-                        end
                     end
                 end
             end
@@ -213,4 +204,3 @@ module systolic_array_4x4 #(
     end
 
 endmodule
-

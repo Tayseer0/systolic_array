@@ -1,6 +1,28 @@
 `timescale 1ns/1ps
 `include "systolic_config.vh"
 
+// Testbench for systolic array top-level module
+//
+// SystemVerilog testbench that verifies systolic array functionality using pre-generated
+// test vectors. Loads instructions, matrix data, and expected results from memory files,
+// programs the DUT, runs computation, and compares outputs against golden reference.
+//
+// Parameters:
+//   INPUT_WIDTH: Bit width of input data (from systolic_config.vh)
+//   RESULT_WIDTH: Bit width of results (from systolic_config.vh)
+//   FRAC_WIDTH: Number of fractional bits (from systolic_config.vh)
+//   ADDR_WIDTH: Address bus width (from systolic_config.vh)
+//   VECTOR_DIM: Systolic array dimension (fixed at 4)
+//   DONE_TIMEOUT_CYCLES: Maximum cycles to wait for ap_done (200000)
+//
+// Behavior:
+//   - Loads test vectors from build/ directory (instructions.mem, dataA.mem, dataB.mem, expected.mem)
+//   - Programs all memories via host write interface
+//   - Asserts ap_start and waits for ap_done with timeout protection
+//   - Dumps DUT outputs to build/output.mem
+//   - Compares each result word against expected values, reports mismatches
+//   - Displays Q format (e.g., Q8.8, Q1.15) in status messages
+
 module tb_systolic_top;
 
     localparam INPUT_WIDTH  = `SYSTOLIC_INPUT_WIDTH;
@@ -33,7 +55,12 @@ module tb_systolic_top;
     wire ap_done;
 
     string vector_dir = "build";
-    string output_dump_path = "build/dut_output.mem";
+    string output_dump_path = "build/output.mem";
+
+    function automatic string get_q_format();
+        int int_bits = INPUT_WIDTH - FRAC_WIDTH;
+        return $sformatf("Q%0d.%0d", int_bits, FRAC_WIDTH);
+    endfunction
 
     systolic_top #(
         .INPUT_WIDTH (INPUT_WIDTH),
@@ -63,7 +90,6 @@ module tb_systolic_top;
         forever #(CLK_PERIOD/2) clk = ~clk;
     end
 
-    // Vectors loaded from Python generator
     int instruction_sizes[$];
     logic signed [INPUT_WIDTH-1:0]  dataA_words[$];
     logic signed [INPUT_WIDTH-1:0]  dataB_words[$];
@@ -342,7 +368,6 @@ module tb_systolic_top;
                 end
             end
 
-            // Write instruction memory (including terminating 0)
             for (instr_idx = 0; instr_idx < instruction_sizes.size(); instr_idx++) begin
                 host_write_I(instr_idx, instruction_sizes[instr_idx][INPUT_WIDTH-1:0]);
             end
@@ -371,7 +396,7 @@ module tb_systolic_top;
                 end
             end
             $fclose(fd);
-            $display("Dumped DUT outputs to %s", path);
+            $display("Dumped DUT outputs to %s (%s)", path, get_q_format());
         end
     endtask
 
@@ -448,9 +473,8 @@ module tb_systolic_top;
         dump_results_to_file(output_dump_path);
         check_results();
 
-        $display("All systolic array tests passed using vectors in %s.", vector_dir);
+        $display("All systolic array tests passed using vectors in %s (%s).", vector_dir, get_q_format());
         $finish;
     end
 
 endmodule
-

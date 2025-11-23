@@ -1,13 +1,30 @@
-`timescale 1ns/1ps
 `include "systolic_config.vh"
+
+// Multiply-accumulate processing element
+//
+// Single processing element in the systolic array that performs multiply-accumulate operations.
+// Multiplies a_in and b_in, then adds product to accumulator. Passes data through to adjacent
+// PEs and accumulates results over VECTOR_LENGTH cycles before asserting completion.
+//
+// Parameters:
+//   INPUT_WIDTH: Bit width of input operands a_in and b_in
+//   ACC_WIDTH: Bit width of accumulator and output
+//   FRAC_WIDTH: Number of fractional bits for fixed-point arithmetic
+//   VECTOR_LENGTH: Number of MAC operations per accumulation (default 4)
+//
+// Behavior:
+//   - On each cycle with a_valid_in and b_valid_in, multiplies a_in * b_in
+//   - Adds product to accumulator (feedback from previous sum or current acc_value)
+//   - Passes a_in and b_in through to next PE in row/column
+//   - Counts operations and asserts acc_valid after VECTOR_LENGTH accumulations complete
+//   - clear signal resets accumulator and counters without affecting data flow
+//   - Multiplier has 3-cycle delay, adder has 1-cycle delay
 
 module mac_pe #(
     parameter INPUT_WIDTH   = `SYSTOLIC_INPUT_WIDTH,
     parameter ACC_WIDTH     = `SYSTOLIC_RESULT_WIDTH,
     parameter FRAC_WIDTH    = `SYSTOLIC_FRAC_WIDTH,
-    parameter VECTOR_LENGTH = 4,
-    parameter integer MAC_ROW = 0,
-    parameter integer MAC_COL = 0
+    parameter VECTOR_LENGTH = 4
 )(
     input                               clk,
     input                               rst,
@@ -36,11 +53,6 @@ module mac_pe #(
     wire signed [ACC_WIDTH-1:0] sum_value;
     wire                        sum_valid;
     wire signed [ACC_WIDTH-1:0] acc_feedback;
-    bit debug_mac;
-
-    initial begin
-        debug_mac = $test$plusargs("DEBUG_MAC");
-    end
 
     multiplier #(
         .INPUT_A_WIDTH (INPUT_WIDTH),
@@ -110,28 +122,13 @@ module mac_pe #(
             mult_count <= '0;
             add_count  <= '0;
         end else begin
-            if (operation_en) begin
-                if (mult_count != VECTOR_LENGTH[COUNT_WIDTH-1:0]) begin
-                    mult_count <= mult_count + 1'b1;
-                end
-                if (debug_mac) begin
-                    $display("%0t MAC[%0d,%0d] mul launch a=%0d b=%0d",
-                             $time, MAC_ROW, MAC_COL, a_in, b_in);
-                end
-            end
-            if (debug_mac && product_valid) begin
-                $display("%0t MAC[%0d,%0d] product=%0d",
-                         $time, MAC_ROW, MAC_COL, product);
+            if (operation_en && mult_count != VECTOR_LENGTH[COUNT_WIDTH-1:0]) begin
+                mult_count <= mult_count + 1'b1;
             end
 
             if (sum_valid) begin
                 acc_value <= sum_value;
                 add_count <= add_count + 1'b1;
-                if (debug_mac) begin
-                    $display("%0t MAC[%0d,%0d] sum=%0d add_count=%0d/%0d",
-                             $time, MAC_ROW, MAC_COL, sum_value,
-                             add_count + 1'b1, VECTOR_LENGTH[COUNT_WIDTH-1:0]);
-                end
                 if (add_count + 1'b1 == VECTOR_LENGTH[COUNT_WIDTH-1:0]) begin
                     acc_valid <= 1'b1;
                 end
@@ -140,4 +137,3 @@ module mac_pe #(
     end
 
 endmodule
-

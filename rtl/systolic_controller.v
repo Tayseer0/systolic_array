@@ -1,5 +1,27 @@
-`timescale 1ns/1ps
 `include "systolic_config.vh"
+
+// FSM controller for systolic array operations
+//
+// Finite state machine that orchestrates systolic array operations for matrix multiplication.
+// Handles instruction fetching, data loading, array feeding, result collection, and memory
+// writes. Supports tiled matrix multiplication by breaking large matrices into 4x4 tiles
+// processed sequentially.
+//
+// Parameters:
+//   INPUT_WIDTH: Width of input data and instructions
+//   RESULT_WIDTH: Width of accumulator results
+//   ADDR_WIDTH: Address bus width for memory interfaces
+//   VECTOR_LENGTH: Tile dimension (default 4)
+//
+// Behavior:
+//   - Fetches instructions from memory (matrix sizes, terminated with 0)
+//   - For each instruction, loads A and B matrix tiles into local buffers
+//   - Feeds tiles to systolic array over VECTOR_LENGTH cycles
+//   - Waits for array completion, then writes results to memory
+//   - Advances through all tiles of current matrix pair (row-major order)
+//   - Supports multiple matrix multiplications per instruction stream
+//   - State machine: IDLE -> FETCH_INST -> WAIT_INST -> CHECK_INST -> PREP_TILE ->
+//     LOAD_A -> LOAD_B -> TILE_CLEAR -> FEED -> WAIT_TILE -> WRITE_TILE -> ADVANCE_TILE
 
 module systolic_controller #(
     parameter INPUT_WIDTH   = `SYSTOLIC_INPUT_WIDTH,
@@ -11,24 +33,19 @@ module systolic_controller #(
     input                           rst,
     input                           ap_start,
     output reg                      ap_done,
-    // Data memory A (matrix rows)
     output reg                      data_a_en,
     output reg [ADDR_WIDTH-1:0]     data_a_addr,
     input      [INPUT_WIDTH-1:0]    data_a_rdata,
-    // Data memory B (matrix columns)
     output reg                      data_b_en,
     output reg [ADDR_WIDTH-1:0]     data_b_addr,
     input      [INPUT_WIDTH-1:0]    data_b_rdata,
-    // Instruction memory
     output reg                      inst_en,
     output reg [ADDR_WIDTH-1:0]     inst_addr,
     input      [INPUT_WIDTH-1:0]    inst_rdata,
-    // Output memory
     output reg                      result_en,
     output reg                      result_we,
     output reg [ADDR_WIDTH-1:0]     result_addr,
     output reg [RESULT_WIDTH-1:0]   result_wdata,
-    // Systolic array interface
     output reg                      tile_clear,
     output reg                      feed_valid,
     output reg [INPUT_WIDTH*4-1:0]  row_data_bus,
@@ -56,9 +73,7 @@ module systolic_controller #(
 
     reg [3:0] state;
     reg [3:0] next_state;
-    bit debug_controller;
 
-    // Instruction tracking
     reg [ADDR_WIDTH-1:0] inst_ptr;
     reg [ADDR_WIDTH-1:0] a_ptr;
     reg [ADDR_WIDTH-1:0] b_ptr;
@@ -69,7 +84,6 @@ module systolic_controller #(
     reg [7:0]            row_block_idx;
     reg [7:0]            col_block_idx;
 
-    // Memory read bookkeeping
     reg [5:0] a_req_count;
     reg [5:0] a_cap_count;
     reg [5:0] b_req_count;
@@ -79,7 +93,6 @@ module systolic_controller #(
     reg       data_b_en_d;
     reg       inst_en_d;
 
-    // Feed/write counters
     reg [3:0] feed_count;
     reg [3:0] feed_cycles;
     localparam integer WRITE_CNT_WIDTH = $clog2(TILE_ELEMS+1);
@@ -92,7 +105,6 @@ module systolic_controller #(
     reg [ADDR_WIDTH-1:0]    pending_result_addr;
     reg [RESULT_WIDTH-1:0]  pending_result_data;
 
-    // Tile buffers
     reg signed [INPUT_WIDTH-1:0] a_tile [0:VECTOR_LENGTH-1][0:VECTOR_LENGTH-1];
     reg signed [INPUT_WIDTH-1:0] b_tile [0:VECTOR_LENGTH-1][0:VECTOR_LENGTH-1];
 
@@ -102,10 +114,6 @@ module systolic_controller #(
     assign start_pulse = ap_start & ~ap_start_d;
 
     integer r, c;
-
-    initial begin
-        debug_controller = $test$plusargs("DEBUG_CTRL");
-    end
 
     always @(posedge clk) begin
         if (rst) begin
@@ -160,18 +168,11 @@ module systolic_controller #(
                 end
             end
         end else begin
-            if (debug_controller && state != next_state) begin
-                $display("%0t CTRL state %0d -> %0d size=%0d row_blk=%0d/%0d col_blk=%0d/%0d feed_cnt=%0d write_cnt=%0d",
-                         $time, state, next_state, curr_size,
-                         row_block_idx, row_blocks_total, col_block_idx, col_blocks_total,
-                         feed_count, write_count);
-            end
             state       <= next_state;
             data_a_en_d <= data_a_en;
             data_b_en_d <= data_b_en;
             inst_en_d   <= inst_en;
 
-            // Defaults
             data_a_en    <= 1'b0;
             data_b_en    <= 1'b0;
             inst_en      <= 1'b0;
@@ -196,18 +197,11 @@ module systolic_controller #(
                 end
                 STATE_FETCH_INST: begin
                     inst_en  <= 1'b1;
-                    inst_addr<= inst_ptr;
-                    if (debug_controller) begin
-                        $display("%0t CTRL fetch inst_ptr=%0d", $time, inst_ptr);
-                    end
+                    inst_addr <= inst_ptr;
                 end
                 STATE_WAIT_INST: begin
                     if (inst_en_d) begin
                         curr_size <= inst_rdata;
-                        if (debug_controller) begin
-                            $display("%0t CTRL inst data size=%0d a_ptr=%0d b_ptr=%0d o_ptr=%0d",
-                                     $time, {{(16-INPUT_WIDTH){1'b0}}, inst_rdata}, a_ptr, b_ptr, o_ptr);
-                        end
                     end
                 end
                 STATE_CHECK_INST: begin
@@ -215,10 +209,6 @@ module systolic_controller #(
                     col_blocks_total <= curr_size[15:2];
                     row_block_idx    <= '0;
                     col_block_idx    <= '0;
-                    if (debug_controller) begin
-                        $display("%0t CTRL begin tiles row_blocks=%0d col_blocks=%0d",
-                                 $time, curr_size[15:2], curr_size[15:2]);
-                    end
                 end
                 STATE_PREP_TILE: begin
                     a_req_count <= '0;
@@ -228,28 +218,16 @@ module systolic_controller #(
                     feed_count  <= '0;
                     feed_cycles <= '0;
                     write_count <= '0;
-                    if (debug_controller) begin
-                        $display("%0t CTRL prep tile row_blk=%0d col_blk=%0d",
-                                 $time, row_block_idx, col_block_idx);
-                    end
                 end
                 STATE_LOAD_A: begin
                     if (a_req_count < TILE_ELEMS[5:0]) begin
                         data_a_en <= 1'b1;
                         data_a_addr <= a_ptr + compute_a_addr(row_block_idx, a_req_count);
                         a_req_count <= a_req_count + 1'b1;
-                        if (debug_controller) begin
-                            $display("%0t CTRL load A req idx=%0d addr=%0d",
-                                     $time, a_req_count, data_a_addr);
-                        end
                     end
                     if (data_a_en_d && a_cap_count < TILE_ELEMS[5:0]) begin
                         store_a_tile(a_cap_count, data_a_rdata);
                         a_cap_count <= a_cap_count + 1'b1;
-                        if (debug_controller) begin
-                            $display("%0t CTRL cap A idx=%0d data=%0d",
-                                     $time, a_cap_count, data_a_rdata);
-                        end
                     end
                 end
                 STATE_LOAD_B: begin
@@ -257,18 +235,10 @@ module systolic_controller #(
                         data_b_en <= 1'b1;
                         data_b_addr <= b_ptr + compute_b_addr(curr_size, col_block_idx, b_req_count);
                         b_req_count <= b_req_count + 1'b1;
-                        if (debug_controller) begin
-                            $display("%0t CTRL load B req idx=%0d addr=%0d",
-                                     $time, b_req_count, data_b_addr);
-                        end
                     end
                     if (data_b_en_d && b_cap_count < TILE_ELEMS[5:0]) begin
                         store_b_tile(b_cap_count, data_b_rdata);
                         b_cap_count <= b_cap_count + 1'b1;
-                        if (debug_controller) begin
-                            $display("%0t CTRL cap B idx=%0d data=%0d",
-                                     $time, b_cap_count, data_b_rdata);
-                        end
                     end
                 end
                 STATE_TILE_CLEAR: begin
@@ -276,10 +246,6 @@ module systolic_controller #(
                         tile_clear   <= 1'b1;
                         feed_count   <= '0;
                         feed_cycles  <= '0;
-                        if (debug_controller) begin
-                            $display("%0t CTRL tile_clear row_blk=%0d col_blk=%0d",
-                                     $time, row_block_idx, col_block_idx);
-                        end
                     end
                 end
                 STATE_FEED: begin
@@ -291,9 +257,6 @@ module systolic_controller #(
                         col_data_bus <= pack_col_bus(feed_idx);
                         feed_count   <= feed_count + 1'b1;
                         feed_cycles  <= feed_cycles + 1'b1;
-                        if (debug_controller) begin
-                            $display("%0t CTRL feed emit=%0d idx=%0d", $time, feed_cycles, feed_idx);
-                        end
                     end else begin
                         feed_valid <= 1'b0;
                     end
@@ -301,10 +264,6 @@ module systolic_controller #(
                 STATE_WAIT_TILE: begin
                     if (tile_done) begin
                         tile_result_reg <= tile_result_flat;
-                        if (debug_controller) begin
-                            $display("%0t CTRL tile_done row_blk=%0d col_blk=%0d",
-                                     $time, row_block_idx, col_block_idx);
-                        end
                     end
                 end
                 STATE_WRITE_TILE: begin
@@ -316,15 +275,10 @@ module systolic_controller #(
                         pending_result_valid <= 1'b1;
                         pending_result_addr  <= addr_calc;
                         pending_result_data  <= data_calc;
-                        if (debug_controller) begin
-                            $display("%0t CTRL write instr_ptr=%0d tile_row=%0d tile_col=%0d idx=%0d addr=%0d data=%0d",
-                                     $time, inst_ptr, row_block_idx, col_block_idx, write_count[4:0], addr_calc, data_calc);
-                        end
                         write_count <= write_count + 1'b1;
                     end
                 end
                 STATE_ADVANCE_TILE: begin
-                    // handled in combinational block
                 end
                 STATE_DONE: begin
                     ap_done <= 1'b1;
@@ -340,7 +294,6 @@ module systolic_controller #(
         end
     end
 
-    // Helper tasks/functions
     function [ADDR_WIDTH-1:0] compute_a_addr;
         input [7:0] block_row;
         input [5:0] index;
@@ -440,7 +393,7 @@ module systolic_controller #(
 
     wire load_a_done = (a_cap_count == TILE_ELEMS[5:0]);
     wire load_b_done = (b_cap_count == TILE_ELEMS[5:0]);
-wire feed_done   = (feed_cycles == VECTOR_LENGTH[3:0]);
+    wire feed_done   = (feed_cycles == VECTOR_LENGTH[3:0]);
     wire write_done  = (write_count == TILE_ELEMS[WRITE_CNT_WIDTH-1:0]);
 
     always @(*) begin
@@ -500,9 +453,7 @@ wire feed_done   = (feed_cycles == VECTOR_LENGTH[3:0]);
     end
 
     always @(posedge clk) begin
-        if (rst) begin
-            // already handled above
-        end else begin
+        if (!rst) begin
             if (state == STATE_ADVANCE_TILE) begin
                 if (col_block_idx + 1 < col_blocks_total) begin
                     col_block_idx <= col_block_idx + 1'b1;
@@ -523,4 +474,3 @@ wire feed_done   = (feed_cycles == VECTOR_LENGTH[3:0]);
     end
 
 endmodule
-
