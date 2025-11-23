@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
+`include "systolic_config.vh"
 
 module systolic_array_4x4 #(
-    parameter INPUT_WIDTH   = 16,
-    parameter ACC_WIDTH     = 16,
-    parameter FRAC_WIDTH    = 8,
+    parameter INPUT_WIDTH   = `SYSTOLIC_INPUT_WIDTH,
+    parameter ACC_WIDTH     = `SYSTOLIC_RESULT_WIDTH,
+    parameter FRAC_WIDTH    = `SYSTOLIC_FRAC_WIDTH,
     parameter VECTOR_LENGTH = 4
 )(
     input                               clk,

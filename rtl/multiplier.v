@@ -1,10 +1,12 @@
+`include "systolic_config.vh"
+
 module multiplier#(
-    parameter INPUT_A_WIDTH = 16,
-    parameter INPUT_B_WIDTH = 16,
-    parameter INPUT_A_FRAC  = 8,
-    parameter INPUT_B_FRAC  = 8,
-    parameter OUTPUT_WIDTH  = 16,
-    parameter OUTPUT_FRAC   = 8,
+    parameter INPUT_A_WIDTH = `SYSTOLIC_INPUT_WIDTH,
+    parameter INPUT_B_WIDTH = `SYSTOLIC_INPUT_WIDTH,
+    parameter INPUT_A_FRAC  = `SYSTOLIC_FRAC_WIDTH,
+    parameter INPUT_B_FRAC  = `SYSTOLIC_FRAC_WIDTH,
+    parameter OUTPUT_WIDTH  = `SYSTOLIC_RESULT_WIDTH,
+    parameter OUTPUT_FRAC   = `SYSTOLIC_FRAC_WIDTH,
     parameter DELAY         = 3
 )(
     input                               clk,

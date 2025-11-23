@@ -1,10 +1,12 @@
 `timescale 1ns/1ps
+`include "systolic_config.vh"
 
 module tb_systolic_top;
 
-    localparam INPUT_WIDTH  = 16;
-    localparam RESULT_WIDTH = 16;
-    localparam ADDR_WIDTH = 10;
+    localparam INPUT_WIDTH  = `SYSTOLIC_INPUT_WIDTH;
+    localparam RESULT_WIDTH = `SYSTOLIC_RESULT_WIDTH;
+    localparam FRAC_WIDTH   = `SYSTOLIC_FRAC_WIDTH;
+    localparam ADDR_WIDTH   = `SYSTOLIC_ADDR_WIDTH;
     localparam CLK_PERIOD = 10;
     localparam integer VECTOR_DIM = 4;
     localparam integer DONE_TIMEOUT_CYCLES = 200000;
@@ -31,12 +33,12 @@ module tb_systolic_top;
     wire ap_done;
 
     string vector_dir = "build";
-    string output_dump_path;
+    string output_dump_path = "build/dut_output.mem";
 
     systolic_top #(
         .INPUT_WIDTH (INPUT_WIDTH),
         .RESULT_WIDTH(RESULT_WIDTH),
-        .FRAC_WIDTH  (8),
+        .FRAC_WIDTH  (FRAC_WIDTH),
         .ADDR_WIDTH  (ADDR_WIDTH)
     ) dut (
         .clk    (clk),
@@ -417,14 +419,6 @@ module tb_systolic_top;
         addrA = 0; addrB = 0; addrI = 0; addrO = 0;
         dataA = 0; dataB = 0; dataI = 0;
         ap_start = 0;
-
-        if (!$value$plusargs("VEC_DIR=%s", vector_dir)) begin
-            vector_dir = "build";
-        end
-
-        if (!$value$plusargs("OUTPUT_DUMP=%s", output_dump_path)) begin
-            output_dump_path = {vector_dir, "/dut_output.mem"};
-        end
 
         rst = 1;
         repeat (5) @(negedge clk);

@@ -29,8 +29,15 @@ def generate_matrix(rows: int, cols: int, value_range: int) -> List[List[int]]:
     ]
 
 
+def compute_value_range(frac_width: int) -> int:
+    base_real_limit = 5.6  # keep products/accumulations in-range
+    raw_limit = int(base_real_limit * (1 << frac_width))
+    raw_limit = max(1, raw_limit)
+    return min(raw_limit, 0x7FFF)
+
+
 def multiply_matrices(
-    a: List[List[int]], b: List[List[int]], frac_bits: int
+    a: List[List[int]], b: List[List[int]], frac_width: int
 ) -> List[List[int]]:
     rows = len(a)
     cols = len(b[0])
@@ -40,7 +47,7 @@ def multiply_matrices(
         for c in range(cols):
             acc = 0
             for k in range(depth):
-                acc += (a[r][k] * b[k][c]) >> frac_bits
+                acc += (a[r][k] * b[k][c]) >> frac_width
                 acc = saturate_s16(acc)
             result[r][c] = saturate_s16(acc)
     return result
@@ -51,14 +58,14 @@ def flatten(matrix: List[List[int]]) -> List[int]:
 
 
 def build_payload(
-    sizes: List[int], frac_bits: int, value_range: int
+    sizes: List[int], frac_width: int, value_range: int
 ) -> Tuple[List[int], List[int], List[int], List[int], Dict[str, Any]]:
     instructions: List[int] = []
     data_a: List[int] = []
     data_b: List[int] = []
     expected: List[int] = []
     meta: Dict[str, Any] = {
-        "frac_bits": frac_bits,
+        "frac_width": frac_width,
         "value_range": value_range,
         "instructions": [],
     }
@@ -73,7 +80,7 @@ def build_payload(
             raise ValueError(f"Size {size} is not supported (must be a multiple of 4)")
         matrix_a = generate_matrix(size, 4, value_range)
         matrix_b = generate_matrix(4, size, value_range)
-        matrix_c = multiply_matrices(matrix_a, matrix_b, frac_bits)
+        matrix_c = multiply_matrices(matrix_a, matrix_b, frac_width)
 
         instructions.append(size)
         data_a.extend(flatten(matrix_a))
@@ -113,45 +120,21 @@ def write_mem_file(path: Path, values: List[int]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate fixed-point matrices.")
     parser.add_argument(
-        "--sizes",
-        type=int,
-        nargs="+",
-        default=[4, 8, 16],
-        help="List of instruction sizes (each must be a multiple of 4).",
-    )
-    parser.add_argument(
         "--frac",
         type=int,
-        default=8,
+        default=15,
         help="Number of fractional bits for the fixed-point representation.",
-    )
-    parser.add_argument(
-        "--value-range",
-        type=int,
-        default=1500,
-        help="Maximum magnitude (in raw fixed-point units) for random entries.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=1,
-        help="Random generator seed for reproducibility.",
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=str,
-        default="build",
-        help="Directory where the generated .mem files will be stored.",
     )
     args = parser.parse_args()
 
-    random.seed(args.seed)
-    value_range = min(max(args.value_range, 0), 0x7FFF)
+    random.seed(1)
+    value_range = compute_value_range(args.frac_width)
+    instruction_sizes = [4, 8, 16]
     instructions, data_a, data_b, expected, meta = build_payload(
-        args.sizes, args.frac, value_range
+        instruction_sizes, args.frac_width, value_range
     )
 
-    out_dir = Path(args.out_dir)
+    out_dir = Path("build")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     write_mem_file(out_dir / "instructions.mem", instructions)

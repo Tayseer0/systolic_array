@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
+`include "systolic_config.vh"
 
 module systolic_controller #(
-    parameter INPUT_WIDTH   = 16,
-    parameter RESULT_WIDTH  = 16,
-    parameter FRAC_WIDTH    = 8,
-    parameter ADDR_WIDTH    = 12,
+    parameter INPUT_WIDTH   = `SYSTOLIC_INPUT_WIDTH,
+    parameter RESULT_WIDTH  = `SYSTOLIC_RESULT_WIDTH,
+    parameter ADDR_WIDTH    = `SYSTOLIC_ADDR_WIDTH,
     parameter VECTOR_LENGTH = 4
 )(
     input                           clk,
