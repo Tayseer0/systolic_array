@@ -15,3 +15,5 @@ __pycache__/
 # Editor swap files
 *~
 *.swp
+*.txt
+*.pdf
