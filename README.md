@@ -50,7 +50,19 @@ make clean          # remove build artifacts
 Artifacts of interest: `build/{instructions,dataA,dataB,expected}.mem`, `build/output.mem`, and the simulator log (which reports the active Q format).
 
 ## Qualitative Evaluation
-- **Performance** – Once the array is primed, throughput is 16 MAC/cycle. Latency per instruction is approximately `load_cycles + dimension + drain_cycles`; larger matrices better amortize fill/drain overhead. Critical path is the multiplier→adder chain, qualitatively implying a low-hundreds-of-megahertz ceiling in mainstream CMOS.
+- **Performance**
+  - **Tiling math** – Each instruction of size `S` (multiple of 4) is decomposed into `row_blocks_total = col_blocks_total = S / 4`, so the number of 4×4 tiles processed is `(S / 4)^2`.
+  - **Per-tile phases** – The FSM executes a fixed schedule for every tile:
+    1. Load 16 `A` words (one per cycle).
+    2. Load 16 `B` words (one per cycle).
+    3. Assert `tile_clear` for one cycle when the array reports `ready_for_feed`.
+    4. Stream four feed beats (`VECTOR_LENGTH = 4`), during which the array sustains 16 MACs per cycle.
+    5. Wait four drain cycles for the multiplier (3-stage) and adder (1-stage) pipelines to flush and assert `tile_done`.
+    6. Write back 16 result words (one per cycle) to the result memory.
+    This sums to 57 clocks per tile (16 + 16 + 1 + 4 + 4 + 16) and produces 16 outputs (64 MAC operations).
+  - **Instruction latency** – Total cycles per matrix multiply are approximately `57 × (S / 4)^2 + 9`, where the small constant covers instruction fetch and pointer updates. Examples: `S = 4` → ~57 cycles; `S = 8` → ~228 cycles; `S = 16` → ~912 cycles.
+  - **Throughput view** – System-level throughput is ~1.12 MACs per cycle (64 MACs / 57 cycles) per tile. Inside the FEED window the array itself still performs the architectural maximum of 16 MACs every clock.
+  - **Frequency outlook** – The critical path is bounded by the registered multiplier/adder stages: the multiplier has three pipeline registers and the adder has one, so each stage only needs to close timing for a 16-bit saturating add/multiply with alignment logic. In typical 28–45 nm libraries those stages easily support a few-hundred-megahertz clock because no stage sees the full MAC chain combinationally.
 - **Power** – Dominated by multiplier/adder switching and dual-port RAM accesses. Energy scales roughly with matrix dimension because more rows toggle for longer durations. Tweaking `FRAC_WIDTH` shifts operand magnitudes slightly but does not alter the overall trend.
 - **Area** – Set primarily by the sixteen MAC PEs and three dual-port memories. Since datapaths remain 16 bits, silicon area is effectively constant unless the array dimension or memory depth changes.
 
