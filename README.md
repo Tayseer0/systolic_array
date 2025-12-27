@@ -28,7 +28,7 @@ Sixteen identical MAC processing elements (PEs) form a 4×4 mesh. Each PE regist
 The controller exposes `ap_start` and `ap_done`, allowing workloads to queue sequentially.
 
 ### Memory Subsystem
-Three dual-port RAMs store operand A, operand B, and results; a fourth RAM holds the instruction stream. Port A of every RAM is reserved for host programming, while Port B belongs to the controller, avoiding contention between initialization and execution phases.
+Three dual-port RAMs store operand A, operand B, and results, a fourth RAM holds the instruction stream. Port A of every RAM is reserved for host programming, while Port B belongs to the controller, avoiding contention between initialization and execution phases.
 
 ## Processing Element Microarchitecture
 - **`rtl/multiplier.v`** – Signed 16-bit multiply, binary-point shift via `FRAC_WIDTH`, symmetric saturation at ±2¹⁵.
