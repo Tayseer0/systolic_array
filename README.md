@@ -1,7 +1,7 @@
 # Systolic Array Project
 
 ## Abstract
-Fixed-point 4×4 systolic array for signed matrix multiplication. The RTL stack, generator, and testbench were refactored so the entire flow is driven by one parameter—`FRAC_WIDTH`—enabling quick comparison of Q-series formats (e.g., Q1.15 vs. Q8.8). The objective is to present a compact yet production-style implementation suitable for technical evaluation.
+Fixed-point 4×4 systolic array for signed matrix multiplication. The RTL stack, generator, and testbench were refactored so the entire flow is driven by one parameter—`FRAC_WIDTH`—enabling quick comparison of Q-series formats (e.g., Q1.15 vs. Q8.8).
 
 ## Repository Structure
 - `rtl/` – multiplier, adder, MAC PE, systolic fabric, controller, dual-port RAMs, and the top-level wrapper.
