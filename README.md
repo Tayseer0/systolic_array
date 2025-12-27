@@ -56,6 +56,4 @@ Artifacts of interest: `build/{instructions,dataA,dataB,expected}.mem`, `build/o
 
 ## Future Enhancements
 - Integrate a synthesis + STA + power script (Yosys/OpenROAD or commercial) to provide quantitative PPA numbers.
-- Add optional cycle counters or trace hooks so the testbench can emit latency statistics per instruction stream.
-- Extend the generator to cover non-square or sparse workloads, exercising partial-utilization scenarios for research exploration.
-
+- Add optional cycle counters so the testbench can emit latency statistics per instruction stream.
